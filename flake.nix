@@ -16,13 +16,18 @@
           pkgs.typst    # Core typst package
           pkgs.tinymist # Typst LSP
           pkgs.typstyle # Typst Formatter
+          pkgs.gnumake
         ];
         shellHook = ''
           echo "Typst dev environment ready"
           typst --version
           tinymist -V
           echo "typstyle $(typstyle --version | grep Version | tr -s ' ')"
+
+          unset SOURCE_DATE_EPOCH
+          export TYPST_ROOT=$(realpath .)
         '';
       };
     };
 }
+
