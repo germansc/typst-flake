@@ -1,0 +1,60 @@
+# Typst Project | CI/CD Configuration
+default:
+  image: ${CI_REGISTRY_IMAGE}:latest
+  tags:
+    - docker
+
+variables:
+  NIX_CONFIG: "experimental-features = nix-command flakes" # Enable flakes
+
+stages:
+  - deploy
+  - lint
+  - build
+
+# Build and deploy the development docker image
+dev-image:
+  stage: deploy
+  image: nixos/nix:latest
+  rules:
+    - changes:
+      - flake.nix
+      - flake.lock
+  script:
+    - echo "> Generating the development docker image..."
+    - |+
+      nix build .#devImage
+      docker load < result
+      docker tag ${CI_PROJECT_NAME}:latest ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
+      docker tag ${CI_PROJECT_NAME}:latest ${CI_REGISTRY_IMAGE}:latest
+      # Login and push the image.
+      docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+      docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
+      docker push ${CI_REGISTRY_IMAGE}:latest
+
+# Check for format warnings on source files
+lint:
+  stage: lint
+  rules:
+    - changes:
+      - "**/*.typ"
+      - .gitlab-ci.yml
+  script:
+    - echo "Running linter"
+    - typstyle --check .
+  allow_failure: true
+
+# Build documents
+build:
+  stage: build
+  rules:
+    - changes:
+      - "**/*.typ"
+      - .gitlab-ci.yml
+  script:
+    - echo "Compiling documents"
+    - make all
+  artifacts:
+    paths:
+      - out/
+    expire_in: 1 hour
