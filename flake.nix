@@ -9,15 +9,22 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+
+      # Development Packages
+      dev-pkgs = [
+        pkgs.typst    # Core typst package
+        pkgs.tinymist # Typst LSP
+        pkgs.typstyle # Typst Formatter
+
+        pkgs.gnumake
+        pkgs.coreutils
+        pkgs.findutils
+      ];
+
     in {
       # Development Shell
       devShells.${system}.default = pkgs.mkShell {
-        buildInputs = [
-          pkgs.typst    # Core typst package
-          pkgs.tinymist # Typst LSP
-          pkgs.typstyle # Typst Formatter
-          pkgs.gnumake
-        ];
+        buildInputs = dev-pkgs;
         shellHook = ''
           echo "Typst dev environment ready"
           typst --version
@@ -26,8 +33,25 @@
 
           unset SOURCE_DATE_EPOCH
           export TYPST_ROOT=$(realpath .)
-        '';
+          '';
+      };
+
+      # Develoment Docker Image for CI/CD
+      packages.${system} = {
+        devImage = pkgs.dockerTools.buildLayeredImage {
+          name = "typst-dev";
+          tag = "latest";
+
+          # The dev-pkgs list goes directly into the 'contents' attribute.
+          # This replaces the entire 'copyToRoot' and 'buildEnv' block.
+          contents = dev-pkgs ++ [ pkgs.bash ];
+
+          # The config block remains exactly the same.
+          config = {
+            Cmd = ["bash"];
+            WorkingDir = "/app";
+          };
+        };
       };
     };
 }
-
