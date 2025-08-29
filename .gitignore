@@ -32,3 +32,6 @@ typst-cache/
 
 # Log files
 *.log
+
+# Nix results
+result
